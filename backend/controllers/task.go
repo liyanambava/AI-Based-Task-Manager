@@ -3,9 +3,9 @@ package controllers
 import (
 	"context"
 	"net/http"
-
 	"task-manager/config"
 	"task-manager/models"
+	"task-manager/websocket" // Import the websocket package
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -39,6 +39,9 @@ func CreateTask(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create task"})
 		return
 	}
+
+	// Broadcast task creation to all WebSocket clients
+	websocket.Broadcast("New task created: " + task.Title)
 
 	c.JSON(http.StatusCreated, gin.H{"task_id": result.InsertedID})
 }
