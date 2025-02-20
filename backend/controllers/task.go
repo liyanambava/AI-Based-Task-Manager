@@ -3,56 +3,65 @@ package controllers
 import (
 	"context"
 	"net/http"
-	"time"
 
 	"task-manager/config"
+	"task-manager/models"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-var taskCollection *mongo.Collection
-
-func init() {
-	taskCollection = config.DB.Collection("tasks")
+// Get the tasks collection
+func GetTaskCollection() *mongo.Collection {
+	if config.DB == nil {
+		return nil
+	}
+	return config.DB.Collection("tasks")
 }
 
-// Create a new task
+// Create a task
 func CreateTask(c *gin.Context) {
-	var task struct {
-		Title       string    `json:"title"`
-		Description string    `json:"description"`
-		CreatedAt   time.Time `json:"createdAt"`
-	}
-
-	if err := c.ShouldBindJSON(&task); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	collection := GetTaskCollection()
+	if collection == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database not connected"})
 		return
 	}
 
-	task.CreatedAt = time.Now()
+	var task models.Task
+	if err := c.BindJSON(&task); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
 
-	_, err := taskCollection.InsertOne(context.TODO(), task)
+	result, err := collection.InsertOne(context.TODO(), task)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create task"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Task created successfully"})
+	c.JSON(http.StatusCreated, gin.H{"task_id": result.InsertedID})
 }
 
-// Get all tasks
+// GetTasks retrieves all tasks from the database
 func GetTasks(c *gin.Context) {
-	cursor, err := taskCollection.Find(context.TODO(), bson.M{})
+	collection := GetTaskCollection()
+	if collection == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database not connected"})
+		return
+	}
+
+	// Fetch all tasks
+	cursor, err := collection.Find(context.TODO(), bson.M{})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve tasks"})
 		return
 	}
+	defer cursor.Close(context.TODO())
 
-	var tasks []bson.M
+	var tasks []models.Task
 	if err := cursor.All(context.TODO(), &tasks); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error decoding tasks"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error parsing tasks"})
 		return
 	}
 
