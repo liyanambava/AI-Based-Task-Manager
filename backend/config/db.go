@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 
@@ -25,13 +26,19 @@ func ConnectDB() {
 		log.Fatal("❌ MONGO_URI is not set in .env file")
 	}
 
-	// Connect to MongoDB
+	// Create MongoDB client
 	clientOptions := options.Client().ApplyURI(mongoURI)
 	client, err := mongo.Connect(context.TODO(), clientOptions)
 	if err != nil {
 		log.Fatal("❌ MongoDB Connection Failed:", err)
 	}
 
+	// Ping the database
+	err = client.Ping(context.TODO(), nil)
+	if err != nil {
+		log.Fatal("❌ MongoDB Ping Failed:", err)
+	}
+
 	DB = client.Database("task-manager")
-	log.Println("✅ Connected to MongoDB!")
+	fmt.Println("✅ Connected to MongoDB Successfully!")
 }
