@@ -4,31 +4,34 @@ import (
 	"log"
 	"net/http"
 
+	"task-manager/config"
+	"task-manager/controllers"
+	"task-manager/routes"
+
 	"github.com/gin-gonic/gin"
 )
 
-// Main function
 func main() {
-	// ✅ Initialize MongoDB (Check if ConnectDB exists in db.go)
-	ConnectDB()
-
-	// ✅ Initialize Router
 	router := gin.Default()
 
-	// ✅ Public route (Health check)
-	router.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "Task Manager API is running!"})
+	// Connect to MongoDB
+	config.ConnectDB()
+
+	// Authentication Route
+	router.POST("/login", func(c *gin.Context) {
+		token, err := controllers.GenerateToken("testuser")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"token": token})
 	})
 
-	// ✅ Authentication routes (Check if GenerateToken exists in auth.go)
-	router.POST("/login", GenerateToken)
+	// Task Routes
+	routes.SetupRoutes(router)
 
-	// ✅ Task routes (Check if CreateTask & GetTasks exist in routes.go)
-	router.POST("/tasks", CreateTask)
-	router.GET("/tasks", GetTasks)
-
-	// ✅ Start the server
+	// Start server
 	if err := router.Run(":8080"); err != nil {
-		log.Fatal("Failed to start server:", err)
+		log.Fatal("❌ Server failed to start:", err)
 	}
 }
