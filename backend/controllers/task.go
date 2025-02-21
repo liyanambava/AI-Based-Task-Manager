@@ -82,10 +82,8 @@ func UpdateTaskStatus(c *gin.Context) {
 		return
 	}
 
-	// Get task ID from URL
+	// Get task ID from URL and force ObjectID conversion
 	taskID := c.Param("id")
-
-	// Convert taskID to ObjectID (allow both string and ObjectID formats)
 	objectID, err := primitive.ObjectIDFromHex(taskID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid task ID format"})
@@ -101,34 +99,55 @@ func UpdateTaskStatus(c *gin.Context) {
 		return
 	}
 
-	// ✅ Check if the task exists before updating
-	var existingTask models.Task
-	err = collection.FindOne(context.TODO(), bson.M{"_id": objectID}).Decode(&existingTask)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
-		return
-	}
-
-	// ✅ Update task status in MongoDB
+	// Update task in MongoDB
 	filter := bson.M{"_id": objectID}
 	update := bson.M{"$set": bson.M{"status": updatedTask.Status}}
 
-	_, err = collection.UpdateOne(context.TODO(), filter, update)
-	if err != nil {
+	result, err := collection.UpdateOne(context.TODO(), filter, update)
+	if err != nil || result.MatchedCount == 0 {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update task"})
 		return
 	}
 
-	// ✅ Fetch updated task
-	err = collection.FindOne(context.TODO(), filter).Decode(&existingTask)
+	// Fetch updated task
+	var newTask models.Task
+	err = collection.FindOne(context.TODO(), filter).Decode(&newTask)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve updated task"})
 		return
 	}
 
-	// ✅ WebSocket Broadcast
-	go websocket.BroadcastMessage("Task Updated: " + existingTask.Title)
+	// WebSocket Broadcast
+	go websocket.BroadcastMessage("Task Updated: " + newTask.Title)
 
-	// ✅ Return updated task
-	c.JSON(http.StatusOK, existingTask)
+	c.JSON(http.StatusOK, newTask)
+}
+
+// Delete a task
+func DeleteTask(c *gin.Context) {
+	collection := GetTaskCollection()
+	if collection == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database not connected"})
+		return
+	}
+
+	// Get task ID from URL and convert it to ObjectID
+	taskID := c.Param("id")
+	objectID, err := primitive.ObjectIDFromHex(taskID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid task ID format"})
+		return
+	}
+
+	// Delete the task from MongoDB
+	result, err := collection.DeleteOne(context.TODO(), bson.M{"_id": objectID})
+	if err != nil || result.DeletedCount == 0 {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete task"})
+		return
+	}
+
+	// WebSocket Broadcast
+	go websocket.BroadcastMessage("Task Deleted: " + taskID)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Task deleted successfully", "task_id": taskID})
 }

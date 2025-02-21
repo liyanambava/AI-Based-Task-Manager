@@ -90,47 +90,79 @@ const TaskList = () => {
     }
   };
 
+  const handleDeleteTask = async (taskId: string | undefined) => {
+    if (!taskId) {
+      console.error("❌ Task ID is undefined! Cannot delete.");
+      return;
+    }
+
+    try {
+      const res = await fetch(`http://localhost:8080/tasks/${taskId}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        setTasks((prevTasks) =>
+          prevTasks ? prevTasks.filter((task) => task._id !== taskId) : []
+        );
+        console.log(`🗑️ Task deleted: ${taskId}`);
+      } else {
+        console.error("❌ Failed to delete task");
+      }
+    } catch (error) {
+      console.error("❌ Error deleting task:", error);
+    }
+  };
+
   return (
     <div className="w-full max-w-4xl mx-auto p-4 bg-gray-100 shadow-lg text-white rounded-lg bg-opacity-80">
       <h2 className="text-2xl font-bold text-gray-800 mb-4">Task List</h2>
 
-      {/* ✅ Prevent Hydration Mismatch by Rendering Only When Tasks Are Loaded */}
       {tasks === null ? (
         <p className="text-gray-600">Loading tasks...</p>
       ) : tasks.length === 0 ? (
         <p className="text-gray-600">No tasks found.</p>
       ) : (
         <ul className="space-y-3">
-          {tasks.map((task, index) => {
-            console.log("🔍 Task Data:", task); // ✅ Debugging task object
-
-            return (
-              <li
-                key={task._id || task.id || `task-${index}`}
-                className="border border-gray-300 p-4 rounded-lg bg-white shadow-md"
-              >
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={task.status === "completed"}
-                    onChange={() => handleCheckboxChange(task)}
-                    className="mr-3"
-                  />
+          {tasks.map((task, index) => (
+            <li
+              key={task._id || task.id || `task-${index}`}
+              className="flex justify-between items-center border border-gray-300 p-4 rounded-lg bg-white shadow-md"
+            >
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={task.status === "completed"}
+                  onChange={() => handleCheckboxChange(task)}
+                  className="mr-3"
+                />
+                <div>
                   <strong className="text-gray-900">{task.title}</strong>:{" "}
                   <span className="text-gray-700">{task.description}</span> -{" "}
                   <span
-                    className={task.status === "completed" ? "text-green-600 font-semibold" : "text-blue-600"}
+                    className={
+                      task.status === "completed"
+                        ? "text-green-600 font-semibold"
+                        : "text-blue-600"
+                    }
                   >
                     {task.status}
                   </span>
                 </div>
-              </li>
-            );
-          })}
+              </div>
+              <button
+                onClick={() => handleDeleteTask(task._id)}
+                className="ml-4 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </li>
+          ))}
         </ul>
       )}
     </div>
   );
 };
+
 
 export default TaskList;
