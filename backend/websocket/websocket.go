@@ -1,60 +1,108 @@
 package websocket
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"sync"
 
+	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
 
-// WebSocket Upgrader to upgrade HTTP connection to WebSocket
+// Store the WebSocket connections
+var clients = make(map[*websocket.Conn]bool) // Keep track of connected clients
+var broadcast = make(chan string)            // Channel to broadcast messages
+
+// Mutex to avoid concurrent access to the clients map
+var mutex sync.Mutex
+
+// WebSocket upgrader
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		return true // Allow all origins for now
+		return true // Allow all connections
 	},
 }
 
-var clients = make(map[*websocket.Conn]bool) // Keeps track of all active WebSocket clients
-var mu sync.Mutex                            // Mutex to handle concurrent access to the clients map
-
-// Handle WebSocket Connections
-func HandleConnections(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
+// Handle WebSocket connections
+func HandleConnections(c *gin.Context) {
+	// Upgrade initial GET request to a WebSocket connection
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		log.Println(err)
+		fmt.Println("Error upgrading connection:", err)
 		return
 	}
 	defer conn.Close()
 
-	// Add the new connection to the clients map
-	mu.Lock()
+	// Register the new client
+	mutex.Lock()
 	clients[conn] = true
-	mu.Unlock()
+	mutex.Unlock()
 
-	// Keep the connection alive and listen for incoming messages (optional)
+	// Listen for incoming WebSocket messages and handle broadcasts
 	for {
-		_, _, err := conn.ReadMessage()
+		messageType, msg, err := conn.ReadMessage()
 		if err != nil {
-			log.Println(err)
-			mu.Lock()
-			delete(clients, conn) // Remove client if connection is closed
-			mu.Unlock()
+			mutex.Lock()
+			delete(clients, conn) // Unregister client on error
+			mutex.Unlock()
 			break
+		}
+
+		// Broadcast the received message back to the sender (echo)
+		if err := conn.WriteMessage(messageType, msg); err != nil {
+			mutex.Lock()
+			delete(clients, conn) // Unregister client on error
+			mutex.Unlock()
+			break
+		}
+	}
+
+	// If the connection is closed, unregister it
+	mutex.Lock()
+	delete(clients, conn)
+	mutex.Unlock()
+}
+
+// Broadcast a message to all WebSocket clients
+func BroadcastTaskCreated(message string) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	// Broadcast to all clients
+	for client := range clients {
+		if err := client.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
+			log.Println("Error broadcasting task creation:", err)
+			client.Close()
+			delete(clients, client)
 		}
 	}
 }
 
-// Broadcast a message to all connected clients
-func Broadcast(message string) {
-	mu.Lock()
-	defer mu.Unlock()
+// Broadcast task status update to all WebSocket clients
+func BroadcastTaskUpdated(message string) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	// Broadcast to all clients
 	for client := range clients {
-		err := client.WriteMessage(websocket.TextMessage, []byte(message))
-		if err != nil {
-			log.Println(err)
+		if err := client.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
+			log.Println("Error broadcasting task update:", err)
 			client.Close()
-			delete(clients, client) // Remove broken connection
+			delete(clients, client)
+		}
+	}
+}
+
+func BroadcastMessage(message string) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	for client := range clients {
+		if err := client.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
+			log.Println("❌ WebSocket Send Error:", err)
+			client.Close()
+			delete(clients, client)
 		}
 	}
 }

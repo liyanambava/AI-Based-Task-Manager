@@ -39,7 +39,10 @@ func main() {
 	})
 
 	// ✅ Task Routes
-	routes.SetupRoutes(router) // This now includes WebSocket setup
+	routes.SetupRoutes(router)
+
+	// ✅ WebSocket Routes (only in one place, here)
+	routes.SetupWebSocketRoutes(router)
 
 	// ✅ Start server
 	if err := router.Run(":8080"); err != nil {

@@ -23,20 +23,20 @@ const TaskForm = () => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 bg-gray-800 text-white rounded-lg">
-      <h2 className="text-lg font-bold mb-2">Create New Task</h2>
+    <form onSubmit={handleSubmit} className="w-full max-w-4xl mx-auto p-4 bg-gray-100 shadow-lg text-white rounded-lg bg-opacity-80">
+      <h2 className="text-lg font-bold mb-2 text-gray-800">Create New Task</h2>
       <input
         type="text"
         placeholder="Title"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        className="w-full p-2 border border-gray-500 rounded mb-2 bg-gray-700 text-white"
+        className="w-full p-2 border border-gray-450 rounded mb-2 bg-gray-400 text-black placeholder-gray-600"
       />
       <textarea
         placeholder="Description"
         value={description}
         onChange={(e) => setDescription(e.target.value)}
-        className="w-full p-2 border border-gray-500 rounded mb-2 bg-gray-700 text-white"
+        className="w-full p-2 border border-gray-450 rounded mb-2 bg-gray-400 text-black placeholder-gray-600"
       />
       <button
         type="submit"
