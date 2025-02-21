@@ -116,10 +116,10 @@ const TaskList = () => {
 
   return (
     <div className="w-full max-w-4xl mx-auto p-4 bg-gray-100 shadow-lg text-white rounded-lg bg-opacity-80">
-      <h2 className="text-2xl font-bold text-gray-800 mb-4">Task List</h2>
+      <h2 className="text-2xl font-bold text-gray-800 mb-4">Tasks</h2>
 
       {tasks === null ? (
-        <p className="text-gray-600">Loading tasks...</p>
+        <p className="text-gray-600">No tasks found.</p>
       ) : tasks.length === 0 ? (
         <p className="text-gray-600">No tasks found.</p>
       ) : (
